@@ -87,7 +87,7 @@ function DocMind() {
       );
 
       setStage("Building the vector index…");
-      setIndex(chunks.map((chunk, i) => ({ ...chunk, embedding: vectors[i] })));
+      setIndex(chunks.map((chunk, i) => ({ ...chunk, embedding: vectors[i] ?? [] })));
       setDoc(extracted);
       setProgress(100);
       setMessages([
@@ -125,6 +125,7 @@ function DocMind() {
 
     try {
       const [queryVector] = await embedTexts([question]);
+      if (!queryVector) throw new Error("Could not understand that question.");
       const sources = searchIndex(index, queryVector, TOP_K);
 
       let streamed = "";
