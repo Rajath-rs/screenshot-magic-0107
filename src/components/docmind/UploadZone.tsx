@@ -15,6 +15,7 @@ export function UploadZone({ onFile, busy, stage, progress }: Props) {
   const [dragging, setDragging] = useState(false);
 
   const pick = (files: FileList | null) => {
+    console.log("[docmind] pick", files?.length);
     const file = files?.[0];
     if (file) onFile(file);
   };
