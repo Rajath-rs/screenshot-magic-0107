@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
+import { getAiConfig } from "@/lib/env";
 
-const EMBEDDING_MODEL = "google/gemini-embedding-2";
 const GATEWAY = "https://ai.gateway.lovable.dev/v1";
 const MAX_BATCH_ITEMS = 100;
 
@@ -13,9 +13,12 @@ export const Route = createFileRoute("/api/embed")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const apiKey = process.env["LOVABLE_API_KEY"];
-        if (!apiKey) {
-          return Response.json({ error: "AI is not configured." }, { status: 500 });
+        const config = getAiConfig();
+        if (!config) {
+          return Response.json(
+            { error: "AI is not configured. Please set OPENROUTER_API_KEY in your .env file." },
+            { status: 500 },
+          );
         }
 
         const parsed = bodySchema.safeParse(await request.json());
@@ -23,15 +26,31 @@ export const Route = createFileRoute("/api/embed")({
           return Response.json({ error: "Invalid embedding request." }, { status: 400 });
         }
 
-        const upstream = await fetch(`${GATEWAY}/embeddings`, {
+        const endpoint =
+          config.provider === "openrouter"
+            ? "https://openrouter.ai/api/v1/embeddings"
+            : `${GATEWAY}/embeddings`;
+
+        const headers: Record<string, string> = {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${config.apiKey}`,
+        };
+
+        if (config.provider === "openrouter") {
+          headers["HTTP-Referer"] = "http://localhost:8080";
+          headers["X-Title"] = "DocMind AI";
+        } else {
+          headers["X-Lovable-AIG-SDK"] = "fetch";
+        }
+
+        const upstream = await fetch(endpoint, {
           method: "POST",
           signal: request.signal,
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${apiKey}`,
-            "X-Lovable-AIG-SDK": "fetch",
-          },
-          body: JSON.stringify({ model: EMBEDDING_MODEL, input: parsed.data.input }),
+          headers,
+          body: JSON.stringify({
+            model: config.embeddingModel,
+            input: parsed.data.input,
+          }),
         });
 
         if (!upstream.ok) {
@@ -48,6 +67,11 @@ export const Route = createFileRoute("/api/embed")({
         const result = (await upstream.json()) as {
           data: { index: number; embedding: number[] }[];
         };
+
+        if (!Array.isArray(result?.data)) {
+          return Response.json({ error: "Invalid embedding response format." }, { status: 502 });
+        }
+
         const ordered: (number[] | undefined)[] = Array.from({
           length: parsed.data.input.length,
         });

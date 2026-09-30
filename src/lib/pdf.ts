@@ -13,6 +13,7 @@ export type PdfDocumentText = {
   fileName: string;
   pageCount: number;
   pages: PdfPage[];
+  rawData?: Uint8Array;
 };
 
 export const NO_TEXT = "No extractable text";
@@ -25,8 +26,16 @@ export async function extractPdfPages(
   const workerUrl = (await import("pdfjs-dist/build/pdf.worker.mjs?url")).default;
   pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
 
-  const data = new Uint8Array(await file.arrayBuffer());
-  const doc = await pdfjs.getDocument({ data }).promise;
+  const arrayBuffer = await file.arrayBuffer();
+  // Clone a copy for extraction so worker transfer does not detach the viewer buffer
+  const dataForExtraction = new Uint8Array(arrayBuffer.slice(0));
+  const dataForViewer = new Uint8Array(arrayBuffer);
+
+  const verbosityLevel = pdfjs.VerbosityLevel?.ERRORS ?? 0;
+  const doc = await pdfjs.getDocument({
+    data: dataForExtraction,
+    verbosity: verbosityLevel,
+  }).promise;
 
   const pages: PdfPage[] = [];
   for (let i = 1; i <= doc.numPages; i++) {
@@ -47,5 +56,5 @@ export async function extractPdfPages(
     onProgress?.(i, doc.numPages);
   }
 
-  return { fileName: file.name, pageCount: doc.numPages, pages };
+  return { fileName: file.name, pageCount: doc.numPages, pages, rawData: dataForViewer };
 }
