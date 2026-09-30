@@ -46,8 +46,9 @@ export function chunkPages(
       const tail: string[] = [];
       let tailWords = 0;
       for (let i = buffer.length - 1; i >= 0 && tailWords < overlap; i--) {
-        tail.unshift(buffer[i]);
-        tailWords += buffer[i].split(/\s+/).length;
+        const sentence = buffer[i] ?? "";
+        tail.unshift(sentence);
+        tailWords += sentence.split(/\s+/).length;
       }
       buffer = tail;
       count = tailWords;

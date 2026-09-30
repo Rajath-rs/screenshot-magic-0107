@@ -45,7 +45,7 @@ export async function streamAnswer(params: {
   const response = await fetch("/api/ask", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    signal: params.signal,
+    signal: params.signal ?? null,
     body: JSON.stringify({
       question: params.question,
       documentName: params.documentName,
